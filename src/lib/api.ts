@@ -1,5 +1,7 @@
 import { createFileChunks } from './fileChunker';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+
 export async function transcribeAudio(file: File): Promise<string> {
   if (file.size <= 25 * 1024 * 1024) {
     // For files under 25MB, use direct upload
@@ -21,22 +23,20 @@ async function transcribeChunk(chunk: Blob): Promise<string> {
   formData.append('file', chunk);
 
   try {
-    const response = await fetch('/api/transcribe', {
+    const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
       method: 'POST',
       body: formData,
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.message || 'Transcription failed');
+      const error = await response.json();
+      throw new Error(error.message || 'Transcription failed');
     }
 
+    const data = await response.json();
     return data.transcription;
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Transcription failed: ${error.message}`);
-    }
-    throw new Error('An unexpected error occurred during transcription');
+    console.error('Transcription error:', error);
+    throw new Error('Transcription failed: ' + (error instanceof Error ? error.message : 'Failed to fetch'));
   }
 }
