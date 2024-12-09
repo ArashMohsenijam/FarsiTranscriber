@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
     },
     define: {
+      'import.meta.env.VITE_GITHUB_TOKEN': JSON.stringify(env.VITE_GITHUB_TOKEN || ''),
       'import.meta.env.VITE_OPENAI_API_KEY': JSON.stringify(env.VITE_OPENAI_API_KEY || '')
     }
   };

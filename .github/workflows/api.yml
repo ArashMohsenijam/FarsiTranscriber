@@ -1,0 +1,38 @@
+name: API Function
+
+on:
+  repository_dispatch:
+    types: [transcribe]
+
+jobs:
+  transcribe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process Transcription Request
+        id: transcribe
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          AUDIO_DATA="${{ github.event.client_payload.audioData }}"
+          RESPONSE=$(curl -X POST https://api.openai.com/v1/audio/transcriptions \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -H "Content-Type: multipart/form-data" \
+            -F file="@$AUDIO_DATA" \
+            -F model="whisper-1" \
+            -F language="fa" \
+            -F response_format="text")
+          echo "::set-output name=transcription::$RESPONSE"
+
+      - name: Create Response Issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const transcription = process.env.TRANSCRIPTION
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Transcription Result',
+              body: transcription
+            })
+        env:
+          TRANSCRIPTION: ${{ steps.transcribe.outputs.transcription }}
