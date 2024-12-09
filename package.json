@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://arashmohsenijam.github.io/FarsiTrascriber",
+  "homepage": "https://arashmohsenijam.github.io/FarsiTranscriber",
   "scripts": {
     "dev": "concurrently \"vite\" \"node server/index.js\"",
     "build": "tsc && vite build",
