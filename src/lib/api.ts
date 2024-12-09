@@ -1,9 +1,5 @@
 import { createFileChunks } from './fileChunker';
 
-// Use CORS proxy for development
-const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
-const OPENAI_API_URL = 'https://api.openai.com/v1/audio/transcriptions';
-
 export async function transcribeAudio(file: File): Promise<string> {
   if (file.size <= 25 * 1024 * 1024) {
     // For files under 25MB, use direct upload
@@ -21,20 +17,19 @@ export async function transcribeAudio(file: File): Promise<string> {
 }
 
 async function transcribeChunk(chunk: Blob): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', chunk);
-  formData.append('model', 'whisper-1');
-  formData.append('language', 'fa');
-  formData.append('response_format', 'text');
-
   try {
-    const response = await fetch(`${CORS_PROXY}${OPENAI_API_URL}`, {
+    // Convert blob to base64
+    const buffer = await chunk.arrayBuffer();
+    const base64Audio = Buffer.from(buffer).toString('base64');
+
+    const response = await fetch('/api/transcribe', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        'Origin': window.location.origin,
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify({
+        audioData: base64Audio
+      }),
     });
 
     if (!response.ok) {
@@ -42,8 +37,8 @@ async function transcribeChunk(chunk: Blob): Promise<string> {
       throw new Error(error.message || 'Transcription failed');
     }
 
-    const data = await response.text();
-    return data;
+    const data = await response.json();
+    return data.transcription;
   } catch (error) {
     console.error('Transcription error:', error);
     throw new Error('Transcription failed: ' + (error instanceof Error ? error.message : 'Failed to fetch'));
