@@ -7,19 +7,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:3002',
-        changeOrigin: true,
-        secure: false,
-      }
-    }
   },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
   },
   define: {
-    'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'http://localhost:3002')
+    'import.meta.env.VITE_OPENAI_API_KEY': JSON.stringify(process.env.OPENAI_API_KEY || '')
   }
 });

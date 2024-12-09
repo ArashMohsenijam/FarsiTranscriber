@@ -1,6 +1,8 @@
 import { createFileChunks } from './fileChunker';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+// Use CORS proxy for development
+const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+const OPENAI_API_URL = 'https://api.openai.com/v1/audio/transcriptions';
 
 export async function transcribeAudio(file: File): Promise<string> {
   if (file.size <= 25 * 1024 * 1024) {
@@ -21,10 +23,17 @@ export async function transcribeAudio(file: File): Promise<string> {
 async function transcribeChunk(chunk: Blob): Promise<string> {
   const formData = new FormData();
   formData.append('file', chunk);
+  formData.append('model', 'whisper-1');
+  formData.append('language', 'fa');
+  formData.append('response_format', 'text');
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
+    const response = await fetch(`${CORS_PROXY}${OPENAI_API_URL}`, {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+        'Origin': window.location.origin,
+      },
       body: formData,
     });
 
@@ -33,8 +42,8 @@ async function transcribeChunk(chunk: Blob): Promise<string> {
       throw new Error(error.message || 'Transcription failed');
     }
 
-    const data = await response.json();
-    return data.transcription;
+    const data = await response.text();
+    return data;
   } catch (error) {
     console.error('Transcription error:', error);
     throw new Error('Transcription failed: ' + (error instanceof Error ? error.message : 'Failed to fetch'));
