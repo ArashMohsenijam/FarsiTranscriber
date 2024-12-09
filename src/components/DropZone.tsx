@@ -48,6 +48,8 @@ export function DropZone({ onFilesAccepted, existingFiles }: DropZoneProps) {
       'audio/mpeg': ['.mp3'],
       'audio/wav': ['.wav'],
       'audio/x-m4a': ['.m4a'],
+      'audio/ogg': ['.ogg', '.oga'],
+      'application/ogg': ['.ogg', '.oga']
     },
   });
 
@@ -66,7 +68,7 @@ export function DropZone({ onFilesAccepted, existingFiles }: DropZoneProps) {
           : 'Drag & drop audio files here, or click to select files'}
       </p>
       <p className="text-sm text-gray-500 mt-2">
-        Supported formats: MP3, WAV, M4A (Max size: 25MB per file)
+        Supported formats: MP3, WAV, M4A, OGG (Max size: 25MB per file)
       </p>
     </div>
   );

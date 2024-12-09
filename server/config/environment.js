@@ -11,6 +11,12 @@ export const config = {
   },
   upload: {
     maxSize: 25 * 1024 * 1024, // 25MB
-    allowedMimeTypes: ['audio/mpeg', 'audio/wav', 'audio/x-m4a'],
+    allowedMimeTypes: [
+      'audio/mpeg',
+      'audio/wav',
+      'audio/x-m4a',
+      'audio/ogg',
+      'application/ogg'
+    ],
   },
 };

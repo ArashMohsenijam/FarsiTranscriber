@@ -31,9 +31,14 @@ export class TranscriptionService {
       stream.push(optimizedBuffer);
       stream.push(null);
 
+      // Detect content type based on file extension
+      const contentType = path.extname(optimizedPath).toLowerCase() === '.ogg' 
+        ? 'audio/ogg'
+        : 'audio/mpeg';
+
       formData.append('file', stream, {
-        filename: 'audio.ogg',
-        contentType: 'audio/ogg',
+        filename: path.basename(optimizedPath),
+        contentType: contentType,
       });
       formData.append('model', config.openai.model);
       formData.append('language', config.openai.language);
