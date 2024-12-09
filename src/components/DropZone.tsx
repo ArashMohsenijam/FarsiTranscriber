@@ -2,6 +2,7 @@ import React from 'react';
 import { useDropzone } from 'react-dropzone';
 import { cn } from '../lib/utils';
 import { AudioFile } from '../types';
+import toast from '../lib/toast'; // Assuming toast is imported from this location
 
 interface DropZoneProps {
   onFilesAccepted: (files: AudioFile[]) => void;
@@ -11,14 +12,32 @@ interface DropZoneProps {
 export function DropZone({ onFilesAccepted, existingFiles }: DropZoneProps) {
   const onDrop = React.useCallback(
     (acceptedFiles: File[]) => {
-      const newFiles = acceptedFiles.map((file, index) => ({
-        id: `${Date.now()}-${index}`,
-        file,
-        name: file.name,
-        order: existingFiles.length + index,
-        status: 'pending' as const,
-      }));
-      onFilesAccepted(newFiles);
+      const validFiles = acceptedFiles.filter(file => {
+        if (!file.type.startsWith('audio/')) {
+          toast.error(`${file.name} is not an audio file`);
+          return false;
+        }
+        
+        // Show warning for large files
+        if (file.size > 25 * 1024 * 1024) { // 25MB
+          toast.info(`${file.name} will be optimized for better transcription quality`, {
+            duration: 5000,
+          });
+        }
+        
+        return true;
+      });
+
+      if (validFiles.length > 0) {
+        const newFiles = validFiles.map((file, index) => ({
+          id: `${Date.now()}-${index}`,
+          file,
+          name: file.name,
+          order: existingFiles.length + index,
+          status: 'pending' as const,
+        }));
+        onFilesAccepted(newFiles);
+      }
     },
     [existingFiles.length, onFilesAccepted]
   );

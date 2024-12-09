@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, X, Play, Check, AlertCircle } from 'lucide-react';
+import { GripVertical, X, Play, Check, AlertCircle, Clock, Loader2, XCircle } from 'lucide-react';
 import { AudioFile } from '../types';
 import { cn } from '../lib/utils';
 
@@ -28,14 +28,21 @@ export function SortableItem({ id, file, onRemove }: SortableItemProps) {
 
   const getStatusIcon = () => {
     switch (file.status) {
+      case 'pending':
+        return <Clock className="w-4 h-4 text-gray-500" />;
+      case 'processing':
+        return (
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+            <span className="text-sm text-blue-500">
+              {file.size && file.size > 25 * 1024 * 1024 ? 'Optimizing & Processing...' : 'Processing...'}
+            </span>
+          </div>
+        );
       case 'completed':
         return <Check className="w-4 h-4 text-green-500" />;
-      case 'processing':
-        return <Play className="w-4 h-4 text-blue-500" />;
       case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return null;
+        return <XCircle className="w-4 h-4 text-red-500" />;
     }
   };
 
