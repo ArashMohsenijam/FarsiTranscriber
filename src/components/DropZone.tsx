@@ -2,7 +2,7 @@ import React from 'react';
 import { useDropzone } from 'react-dropzone';
 import { cn } from '../lib/utils';
 import { AudioFile } from '../types';
-import toast from '../lib/toast'; // Assuming toast is imported from this location
+import toast from '../lib/toast';
 
 interface DropZoneProps {
   onFilesAccepted: (files: AudioFile[]) => void;
@@ -12,8 +12,12 @@ interface DropZoneProps {
 export function DropZone({ onFilesAccepted, existingFiles }: DropZoneProps) {
   const onDrop = React.useCallback(
     (acceptedFiles: File[]) => {
+      console.log('Dropped files:', acceptedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
+      
       const validFiles = acceptedFiles.filter(file => {
-        if (!file.type.startsWith('audio/')) {
+        console.log('Checking file:', file.name, 'Type:', file.type);
+        
+        if (!file.type.startsWith('audio/') && !file.type.includes('ogg')) {
           toast.error(`${file.name} is not an audio file`);
           return false;
         }
@@ -51,6 +55,7 @@ export function DropZone({ onFilesAccepted, existingFiles }: DropZoneProps) {
       'audio/ogg': ['.ogg', '.oga'],
       'application/ogg': ['.ogg', '.oga']
     },
+    multiple: true
   });
 
   return (
