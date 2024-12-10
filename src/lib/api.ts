@@ -26,8 +26,8 @@ async function transcribeChunk(chunk: Blob): Promise<string> {
     const buffer = await chunk.arrayBuffer();
     const base64Audio = Buffer.from(buffer).toString('base64');
 
-    // Create a dispatch event to trigger the GitHub Action
-    const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`, {
+    // Create a new issue with the audio data
+    const createIssueResponse = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GITHUB_TOKEN}`,
@@ -35,19 +35,21 @@ async function transcribeChunk(chunk: Blob): Promise<string> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        event_type: 'transcribe',
-        client_payload: {
-          audioData: base64Audio
-        }
+        title: `Transcription Request ${new Date().toISOString()}`,
+        body: JSON.stringify({ audioData: base64Audio }),
+        labels: ['transcription-request']
       })
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to trigger transcription');
+    if (!createIssueResponse.ok) {
+      throw new Error('Failed to create transcription request');
     }
 
-    // Poll for the result in issues
-    const result = await pollForTranscriptionResult();
+    const issue = await createIssueResponse.json();
+    const issueNumber = issue.number;
+
+    // Poll for the transcription result
+    const result = await pollForTranscriptionResult(issueNumber);
     return result;
   } catch (error) {
     console.error('Transcription error:', error);
@@ -55,10 +57,10 @@ async function transcribeChunk(chunk: Blob): Promise<string> {
   }
 }
 
-async function pollForTranscriptionResult(attempts = 30, interval = 2000): Promise<string> {
+async function pollForTranscriptionResult(issueNumber: number, attempts = 30, interval = 2000): Promise<string> {
   for (let i = 0; i < attempts; i++) {
     const response = await fetch(
-      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=open&labels=transcription&per_page=1`,
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments`,
       {
         headers: {
           'Authorization': `Bearer ${GITHUB_TOKEN}`,
@@ -68,12 +70,11 @@ async function pollForTranscriptionResult(attempts = 30, interval = 2000): Promi
     );
 
     if (response.ok) {
-      const issues = await response.json();
-      if (issues.length > 0) {
-        const transcription = issues[0].body;
+      const comments = await response.json();
+      if (comments.length > 0) {
         // Close the issue
         await fetch(
-          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issues[0].number}`,
+          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}`,
           {
             method: 'PATCH',
             headers: {
@@ -84,7 +85,7 @@ async function pollForTranscriptionResult(attempts = 30, interval = 2000): Promi
             body: JSON.stringify({ state: 'closed' })
           }
         );
-        return transcription;
+        return comments[0].body;
       }
     }
 
