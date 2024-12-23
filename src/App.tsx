@@ -11,6 +11,7 @@ export function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [combinedTranscription, setCombinedTranscription] = useState<string | null>(null);
+  const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
 
   const handleFilesAccepted = (newFiles: AudioFile[]) => {
     setFiles(prevFiles => [...prevFiles, ...newFiles].sort((a, b) => a.order - b.order));
@@ -36,12 +37,13 @@ export function App() {
     setIsProcessing(true);
     setError(null);
     setCombinedTranscription(null);
+    setProcessingStatus({ status: 'Starting...', progress: 0 });
     
     const sortedFiles = [...files].sort((a, b) => a.order - b.order);
     const transcriptions: string[] = [];
 
     try {
-      for (const file of sortedFiles) {
+      for (const [index, file] of sortedFiles.entries()) {
         setFiles(prevFiles =>
           prevFiles.map(f =>
             f.id === file.id ? { ...f, status: 'processing' } : f
@@ -49,17 +51,25 @@ export function App() {
         );
 
         try {
-          const transcription = await transcribeAudio(file.file);
-          transcriptions.push(`${file.name}:\n${transcription}`);
+          console.log('Processing file:', file.name);
+          const transcription = await transcribeAudio(file.file, (progress) => {
+            console.log('Progress update:', progress);
+            setProcessingStatus({
+              status: `${progress.status} (${file.name})`,
+              progress: progress.progress
+            });
+          });
           
+          console.log('Transcription received:', transcription);
+          transcriptions.push(`${file.name}:\n${transcription}`);
+
           setFiles(prevFiles =>
             prevFiles.map(f =>
-              f.id === file.id
-                ? { ...f, status: 'completed', transcription }
-                : f
+              f.id === file.id ? { ...f, status: 'completed' } : f
             )
           );
         } catch (error) {
+          console.error('Error processing file:', file.name, error);
           setFiles(prevFiles =>
             prevFiles.map(f =>
               f.id === file.id ? { ...f, status: 'error' } : f
@@ -69,11 +79,17 @@ export function App() {
         }
       }
 
-      const finalTranscription = transcriptions.join('\n\n---\n\n');
-      setCombinedTranscription(finalTranscription);
+      const combined = transcriptions.join('\n\n---\n\n');
+      console.log('Final transcription:', combined);
+      setCombinedTranscription(combined);
+      setProcessingStatus({ status: 'Complete', progress: 100 });
+
+      // Save the transcription
+      await saveTranscription(combined);
     } catch (error) {
-      setError('خطا در تبدیل فایل‌های صوتی. لطفاً دوباره تلاش کنید.');
-      console.error('Transcription error:', error);
+      console.error('Processing error:', error);
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      setProcessingStatus({ status: 'Error', progress: 0 });
     } finally {
       setIsProcessing(false);
     }
@@ -108,7 +124,7 @@ export function App() {
                       disabled={isProcessing || files.length === 0}
                       className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isProcessing ? 'در حال پردازش...' : 'شروع تبدیل'}
+                      {isProcessing ? processingStatus.status : 'شروع تبدیل'}
                     </button>
                   </div>
                 </div>

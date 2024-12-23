@@ -28,5 +28,11 @@ dist-ssr
 .env
 .env.*
 
+# Server upload directories
+server/uploads/*
+!server/uploads/.gitkeep
+server/optimized/*
+!server/optimized/.gitkeep
+
 # Test files
 test-files/
