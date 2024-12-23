@@ -4,9 +4,10 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/FarsiTranscriber/',  // Update base URL for GitHub Pages
+  base: '/FarsiTranscriber/',
   build: {
     outDir: 'dist',
+    assetsDir: 'assets',
     emptyOutDir: true,
-  }
-});
+  },
+})
