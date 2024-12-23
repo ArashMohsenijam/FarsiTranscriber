@@ -24,6 +24,8 @@ export async function transcribeAudio(file: File, onProgress?: (progress: { stat
     const response = await fetch(`${API_URL}/api/transcribe`, {
       method: 'POST',
       body: formData,
+      credentials: 'include',
+      mode: 'cors'
     });
 
     if (!response.ok) {

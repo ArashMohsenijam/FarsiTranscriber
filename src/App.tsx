@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DropZone } from './components/DropZone';
 import { FileList } from './components/FileList';
 import { TranscriptionResult } from './components/TranscriptionResult';
+import { ProgressBar } from './components/ProgressBar';
 import { transcribeAudio } from './lib/api';
 import { AudioFile } from './types';
 import { saveTranscription } from './lib/fileUtils';
@@ -111,20 +112,29 @@ export function App() {
               />
 
               {files.length > 0 && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <FileList
                     files={files}
                     onReorder={handleReorder}
                     onRemove={handleRemove}
                   />
 
+                  {isProcessing && (
+                    <div className="mt-4 p-4 bg-white rounded-lg shadow">
+                      <ProgressBar 
+                        progress={processingStatus.progress} 
+                        status={processingStatus.status}
+                      />
+                    </div>
+                  )}
+
                   <div className="flex justify-end">
                     <button
                       onClick={processFiles}
                       disabled={isProcessing || files.length === 0}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                     >
-                      {isProcessing ? processingStatus.status : 'شروع تبدیل'}
+                      {isProcessing ? 'در حال پردازش...' : 'شروع تبدیل'}
                     </button>
                   </div>
                 </div>
