@@ -3,9 +3,8 @@ services:
     name: farsitranscriber
     env: node
     branch: server
-    rootDir: server
-    buildCommand: npm install
-    startCommand: node server.js
+    buildCommand: cd server && npm install
+    startCommand: cd server && node server.js
     envVars:
       - key: OPENAI_API_KEY
         sync: false
