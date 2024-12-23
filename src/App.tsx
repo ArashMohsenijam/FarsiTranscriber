@@ -56,7 +56,7 @@ export function App() {
           const transcription = await transcribeAudio(file.file, (progress) => {
             console.log('Progress update:', progress);
             setProcessingStatus({
-              status: `${progress.status} (${file.name})`,
+              status: progress.status,
               progress: progress.progress
             });
           });
