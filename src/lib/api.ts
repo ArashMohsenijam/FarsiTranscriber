@@ -3,6 +3,8 @@ import { createFileChunks } from './fileChunker';
 const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
 const REPO_OWNER = 'ArashMohsenijam';
 const REPO_NAME = 'FarsiTranscriber';
+// Use the production API URL
+const API_URL = 'https://farsitranscriber.onrender.com';
 
 // Helper function to convert ArrayBuffer to base64
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -19,7 +21,7 @@ export async function transcribeAudio(file: File, onProgress?: (progress: { stat
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch('http://localhost:3001/api/transcribe', {
+    const response = await fetch(`${API_URL}/api/transcribe`, {
       method: 'POST',
       body: formData,
     });

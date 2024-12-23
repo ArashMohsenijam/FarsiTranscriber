@@ -23,12 +23,23 @@ if (!fs.existsSync(optimizedDir)) fs.mkdirSync(optimizedDir);
 const upload = multer({ dest: uploadsDir });
 
 // Configure CORS
+const allowedOrigins = [
+  'https://arashmohsenijam.github.io',
+  'http://localhost:5173',
+  'https://farsitranscriber.onrender.com' // Add your Render.com domain when you get it
+];
+
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL 
-    : 'http://localhost:5173',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 };
 
 app.use(cors(corsOptions));
@@ -68,7 +79,7 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('Access-Control-Allow-Origin', corsOptions.origin);
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigins);
 
   try {
     if (!req.file) {
@@ -163,5 +174,5 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });

@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: farsitranscriber
+    env: node
+    branch: server
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
