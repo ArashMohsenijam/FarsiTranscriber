@@ -27,6 +27,8 @@ export async function transcribeAudio(
     formData.append('optimizeAudio', options.optimizeAudio.toString());
     formData.append('improveTranscription', options.improveTranscription.toString());
 
+    console.log('Sending request with options:', options);
+
     const response = await fetch(`${API_URL}/api/transcribe`, {
       method: 'POST',
       body: formData,
