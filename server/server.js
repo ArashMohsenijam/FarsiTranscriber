@@ -22,14 +22,19 @@ if (!fs.existsSync(optimizedDir)) fs.mkdirSync(optimizedDir);
 
 const upload = multer({ dest: uploadsDir });
 
-// Simple CORS configuration
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
+// Enable CORS for all routes
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://farsitranscriber.onrender.com');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 
 app.use(express.json());
 
@@ -49,11 +54,12 @@ if (!OPENAI_API_KEY) {
 }
 
 app.post('/api/transcribe', upload.single('file'), async (req, res) => {
-  // Enable CORS for this route
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
-  res.header('Access-Control-Allow-Credentials', true);
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,content-type,application/json');
+  // Set CORS headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', 'https://farsitranscriber.onrender.com');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   const cleanup = () => {
     try {
@@ -77,10 +83,6 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
       console.error('Error sending status:', error);
     }
   };
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
 
   try {
     if (!req.file) {
