@@ -1,6 +1,7 @@
 services:
+  # Backend API Service
   - type: web
-    name: farsitranscriber
+    name: farsitranscriber-api
     env: node
     branch: server
     buildCommand: cd server && npm install
@@ -8,3 +9,16 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+    headers:
+      - path: /*
+        name: Access-Control-Allow-Origin
+        value: https://farsitranscriber.onrender.com
+      - path: /*
+        name: Access-Control-Allow-Methods
+        value: GET, POST, OPTIONS
+      - path: /*
+        name: Access-Control-Allow-Headers
+        value: Content-Type, Authorization, Accept
+      - path: /*
+        name: Access-Control-Allow-Credentials
+        value: "true"
