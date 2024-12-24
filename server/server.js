@@ -22,27 +22,39 @@ if (!fs.existsSync(optimizedDir)) fs.mkdirSync(optimizedDir);
 
 const upload = multer({ dest: uploadsDir });
 
-// Enable CORS for all routes
+// List of allowed origins
+const allowedOrigins = [
+  'https://farsitranscriber.onrender.com',
+  'http://localhost:5173'
+];
+
+// CORS middleware
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://farsitranscriber.onrender.com');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Handle preflight requests
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+
+  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
   next();
 });
 
+// Parse JSON bodies
 app.use(express.json());
 
 // Test endpoint for CORS
 app.get('/test-cors', (req, res) => {
   res.json({ 
     message: 'CORS test successful',
-    origin: req.headers.origin || 'No origin'
+    origin: req.headers.origin || 'No origin',
+    headers: req.headers
   });
 });
 
@@ -54,11 +66,16 @@ if (!OPENAI_API_KEY) {
 }
 
 app.post('/api/transcribe', upload.single('file'), async (req, res) => {
-  // Set CORS headers for SSE
+  // Set SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('Access-Control-Allow-Origin', 'https://farsitranscriber.onrender.com');
+
+  // Set CORS headers again for SSE
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   const cleanup = () => {
