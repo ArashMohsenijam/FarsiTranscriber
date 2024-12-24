@@ -8,11 +8,16 @@ import { transcribeAudio } from './lib/api';
 import { AudioFile } from './types';
 import { saveTranscription } from './lib/fileUtils';
 
+interface TranscriptionResult {
+  original: string;
+  improved: string | null;
+}
+
 export function App() {
   const [files, setFiles] = useState<AudioFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [combinedTranscription, setCombinedTranscription] = useState<string | null>(null);
+  const [combinedTranscription, setCombinedTranscription] = useState<TranscriptionResult | null>(null);
   const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
   const [optimizeAudio, setOptimizeAudio] = useState(false); // Changed to false by default
   const [improveTranscription, setImproveTranscription] = useState(true);
@@ -62,7 +67,7 @@ export function App() {
     abortControllerRef.current = new AbortController();
     
     const sortedFiles = [...files].sort((a, b) => a.order - b.order);
-    const transcriptions: string[] = [];
+    const transcriptions: TranscriptionResult[] = [];
 
     try {
       for (const [index, file] of sortedFiles.entries()) {
@@ -88,7 +93,7 @@ export function App() {
           );
           
           console.log('Transcription received:', transcription);
-          transcriptions.push(`${file.name}:\n${transcription}`);
+          transcriptions.push(transcription);
 
           setFiles(prevFiles =>
             prevFiles.map(f =>
@@ -106,13 +111,17 @@ export function App() {
         }
       }
 
-      const combined = transcriptions.join('\n\n---\n\n');
+      const combined = transcriptions.reduce((acc, transcription) => {
+        acc.original += `${transcription.original}\n\n---\n\n`;
+        acc.improved += `${transcription.improved}\n\n---\n\n`;
+        return acc;
+      }, { original: '', improved: '' });
       console.log('Final transcription:', combined);
       setCombinedTranscription(combined);
       setProcessingStatus({ status: 'Complete', progress: 100 });
 
       // Save the transcription
-      await saveTranscription(combined);
+      await saveTranscription(combined.original);
     } catch (error) {
       console.error('Processing error:', error);
       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
@@ -197,6 +206,47 @@ export function App() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface TranscriptionResultProps {
+  text: TranscriptionResult;
+  onReset: () => void;
+}
+
+function TranscriptionResult({ text, onReset }: TranscriptionResultProps) {
+  return (
+    <div className="transcription-section">
+      {text.improved ? (
+        <div className="transcription-columns">
+          <div className="transcription-column">
+            <h3>متن اصلی</h3>
+            <div className="transcription-text">
+              {text.original}
+            </div>
+          </div>
+          <div className="transcription-column">
+            <h3>متن بهبود یافته</h3>
+            <div className="transcription-text">
+              {text.improved}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="transcription-single">
+          <h3>متن رونویسی شده</h3>
+          <div className="transcription-text">
+            {text.original}
+          </div>
+        </div>
+      )}
+      <button
+        onClick={onReset}
+        className="px-4 py-2 text-sm text-red-600 hover:text-red-800 font-medium"
+      >
+        بازنشانی
+      </button>
     </div>
   );
 }
