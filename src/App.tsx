@@ -10,7 +10,7 @@ import { saveTranscription } from './lib/fileUtils';
 
 interface TranscriptionResult {
   original: string;
-  improved: string | null;
+  improved: string;
 }
 
 export function App() {
@@ -204,7 +204,10 @@ export function App() {
 
           {combinedTranscription && (
             <TranscriptionResult
-              text={combinedTranscription}
+              text={{
+                original: combinedTranscription.original.trim(),
+                improved: combinedTranscription.improved.trim()
+              }}
               onReset={handleReset}
             />
           )}
@@ -216,47 +219,6 @@ export function App() {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-interface TranscriptionResultProps {
-  text: TranscriptionResult;
-  onReset: () => void;
-}
-
-function TranscriptionResult({ text, onReset }: TranscriptionResultProps) {
-  return (
-    <div className="transcription-section">
-      {text.improved ? (
-        <div className="transcription-columns">
-          <div className="transcription-column">
-            <h3>متن اصلی</h3>
-            <div className="transcription-text">
-              {text.original}
-            </div>
-          </div>
-          <div className="transcription-column">
-            <h3>متن بهبود یافته</h3>
-            <div className="transcription-text">
-              {text.improved}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="transcription-single">
-          <h3>متن رونویسی شده</h3>
-          <div className="transcription-text">
-            {text.original}
-          </div>
-        </div>
-      )}
-      <button
-        onClick={onReset}
-        className="px-4 py-2 text-sm text-red-600 hover:text-red-800 font-medium"
-      >
-        بازنشانی
-      </button>
     </div>
   );
 }
