@@ -4,7 +4,7 @@ const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
 const REPO_OWNER = 'ArashMohsenijam';
 const REPO_NAME = 'FarsiTranscriber';
 // Use the production API URL
-const API_URL = 'https://farsitranscriber.onrender.com';
+const API_URL = 'https://farsitranscriber-api.onrender.com';
 
 // Helper function to convert ArrayBuffer to base64
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
