@@ -14,7 +14,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [combinedTranscription, setCombinedTranscription] = useState<string | null>(null);
   const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
-  const [optimizeAudio, setOptimizeAudio] = useState(true);
+  const [optimizeAudio, setOptimizeAudio] = useState(false); // Changed to false by default
   const [improveTranscription, setImproveTranscription] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
