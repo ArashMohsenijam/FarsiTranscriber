@@ -33,8 +33,11 @@ export async function transcribeAudio(
     const response = await fetch(`${API_URL}/api/transcribe`, {
       method: 'POST',
       body: formData,
-      credentials: 'include',
       mode: 'cors',
+      credentials: 'omit',
+      headers: {
+        'Accept': 'application/json',
+      },
       signal
     });
 
