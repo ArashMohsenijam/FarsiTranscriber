@@ -20,7 +20,21 @@ const optimizedDir = path.join(__dirname, 'optimized');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 if (!fs.existsSync(optimizedDir)) fs.mkdirSync(optimizedDir);
 
-const upload = multer({ dest: uploadsDir });
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    // Decode the filename from URI encoding
+    const decodedName = decodeURIComponent(file.originalname);
+    // Generate a unique filename while preserving the original extension
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(decodedName));
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // List of allowed origins
 const allowedOrigins = [
@@ -80,7 +94,7 @@ if (!OPENAI_API_KEY) {
 
 app.post('/api/transcribe', upload.single('file'), async (req, res) => {
   // Set SSE headers
-  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
@@ -106,9 +120,9 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
     }
   };
 
-  const sendStatus = (status, progress = 0) => {
+  const sendStatus = (status, progress = 0, extra = {}) => {
     try {
-      const data = JSON.stringify({ status, progress });
+      const data = JSON.stringify({ status, progress, ...extra });
       console.log('Sending status:', data);
       res.write(`data: ${data}\n\n`);
     } catch (error) {
@@ -121,8 +135,11 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
       throw new Error('No file uploaded');
     }
 
+    // Decode the original filename
+    const originalName = decodeURIComponent(req.file.originalname);
+    
     console.log('File details:', {
-      name: req.file.originalname,
+      name: originalName,
       size: req.file.size,
       type: req.file.mimetype,
       path: req.file.path
@@ -132,8 +149,8 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
       throw new Error('Invalid file type. Please upload an audio file.');
     }
 
-    console.log('File received:', req.file.originalname);
-    sendStatus('Uploading', 33);
+    console.log('File received:', originalName);
+    sendStatus('Uploading', 33, { filename: originalName });
 
     // Optimize audio file
     console.log('Optimizing audio...');
@@ -191,7 +208,8 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
     const finalResponse = JSON.stringify({ 
       status: 'Complete',
       progress: 100,
-      transcription: transcription 
+      transcription: transcription,
+      filename: originalName
     });
     console.log('Sending final response:', finalResponse);
     res.write(`data: ${finalResponse}\n\n`);
@@ -211,7 +229,7 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
   }
 });
 
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 10000;
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
