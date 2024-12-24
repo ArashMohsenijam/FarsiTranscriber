@@ -79,6 +79,8 @@ export function App() {
 
         try {
           console.log('Processing file:', file.name);
+          console.log('Sending request with options:', { optimizeAudio, improveTranscription });
+          
           const transcription = await transcribeAudio(
             file.file,
             (progress) => {
@@ -92,8 +94,16 @@ export function App() {
             abortControllerRef.current.signal
           );
           
-          console.log('Transcription received:', transcription);
-          transcriptions.push(transcription);
+          console.log('Transcription result received:', transcription);
+          
+          if (!transcription || !transcription.original) {
+            throw new Error('Invalid transcription result received');
+          }
+          
+          transcriptions.push({
+            original: transcription.original,
+            improved: transcription.improved || transcription.original
+          });
 
           setFiles(prevFiles =>
             prevFiles.map(f =>

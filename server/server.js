@@ -150,14 +150,33 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
 
     const transcription = await response.text();
     console.log('Transcription received, length:', transcription.length);
-    console.log('Transcription text:', transcription);
+    console.log('Raw transcription:', transcription);
     
-    // Send the final transcription result
-    res.write(`data: ${JSON.stringify({ 
+    let result = {
+      original: transcription,
+      improved: transcription
+    };
+
+    console.log('Formatted result:', result);
+
+    // If improve transcription is requested, process it
+    if (req.body.improveTranscription === 'true') {
+      sendStatus('Improving transcription...', 90);
+      console.log('Improving transcription...');
+      // TODO: Add text improvement logic here
+      // For now, we'll just use the original text
+    }
+    
+    const finalResponse = { 
       status: 'Complete',
       progress: 100,
-      transcription: transcription 
-    })}\n\n`);
+      result: result
+    };
+    
+    console.log('Sending final response:', finalResponse);
+    
+    // Send the final transcription result
+    res.write(`data: ${JSON.stringify(finalResponse)}\n\n`);
     res.end();
   } catch (error) {
     console.error('Server error:', error);

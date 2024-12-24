@@ -2,13 +2,17 @@ import React from 'react';
 import { Download, Copy, RefreshCw } from 'lucide-react';
 
 interface TranscriptionResultProps {
-  text: string;
+  text: {
+    original: string;
+    improved: string;
+  };
   onReset: () => void;
 }
 
 export function TranscriptionResult({ text, onReset }: TranscriptionResultProps) {
   const handleDownload = () => {
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const content = `Original Transcription:\n${text.original}\n\nImproved Transcription:\n${text.improved}`;
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -21,7 +25,8 @@ export function TranscriptionResult({ text, onReset }: TranscriptionResultProps)
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      const content = `Original Transcription:\n${text.original}\n\nImproved Transcription:\n${text.improved}`;
+      await navigator.clipboard.writeText(content);
     } catch (err) {
       console.error('Failed to copy text:', err);
     }
@@ -30,10 +35,16 @@ export function TranscriptionResult({ text, onReset }: TranscriptionResultProps)
   return (
     <div className="w-full space-y-4">
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4 text-right">متن شما</h2>
+        <h2 className="text-xl font-semibold mb-4 text-right">متن اصلی</h2>
         <div className="bg-gray-50 rounded-lg p-4 mb-4 max-h-[400px] overflow-y-auto">
-          <p className="text-right whitespace-pre-wrap" dir="rtl">{text}</p>
+          <p className="text-right whitespace-pre-wrap" dir="rtl">{text.original}</p>
         </div>
+        
+        <h2 className="text-xl font-semibold mb-4 text-right">متن بهبود یافته</h2>
+        <div className="bg-gray-50 rounded-lg p-4 mb-4 max-h-[400px] overflow-y-auto">
+          <p className="text-right whitespace-pre-wrap" dir="rtl">{text.improved}</p>
+        </div>
+
         <div className="flex justify-end space-x-4 space-x-reverse">
           <button
             onClick={handleDownload}

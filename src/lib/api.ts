@@ -21,7 +21,7 @@ export async function transcribeAudio(
   onProgress?: (progress: { status: string; progress: number }) => void,
   options: { optimizeAudio: boolean; improveTranscription: boolean } = { optimizeAudio: true, improveTranscription: true },
   signal?: AbortSignal
-): Promise<string> {
+): Promise<{ original: string; improved: string }> {
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -47,7 +47,7 @@ export async function transcribeAudio(
       throw new Error('Response body is null');
     }
 
-    let result = '';
+    let result: { original: string; improved: string } | null = null;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -61,8 +61,8 @@ export async function transcribeAudio(
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(5));
-            if (data.transcription) {
-              result = data.transcription;
+            if (data.result) {
+              result = data.result;
             }
             if (data.status && onProgress) {
               onProgress(data);
@@ -75,6 +75,10 @@ export async function transcribeAudio(
           }
         }
       }
+    }
+
+    if (!result) {
+      throw new Error('No transcription result received');
     }
 
     return result;
