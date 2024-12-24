@@ -26,23 +26,31 @@ const upload = multer({ dest: uploadsDir });
 const allowedOrigins = [
   'https://arashmohsenijam.github.io',
   'http://localhost:5173',
-  'https://farsitranscriber.onrender.com' // Add your Render.com domain when you get it
+  'https://farsitranscriber.onrender.com',
+  'https://farsitranscriber-api.onrender.com'
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 200
 };
 
+// Enable CORS for all routes
 app.use(cors(corsOptions));
+
+// Enable pre-flight requests for all routes
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -52,7 +60,13 @@ if (!OPENAI_API_KEY) {
   process.exit(1);
 }
 
-app.post('/api/transcribe', upload.single('file'), async (req, res) => {
+app.post('/api/transcribe', cors(corsOptions), upload.single('file'), async (req, res) => {
+  // Enable CORS for this route
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', true);
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,content-type,application/json');
+
   const cleanup = () => {
     try {
       if (req.file && fs.existsSync(req.file.path)) {
@@ -79,7 +93,6 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigins);
 
   try {
     if (!req.file) {
