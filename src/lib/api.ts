@@ -16,9 +16,16 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return window.btoa(binary);
 }
 
+interface TranscriptionProgress {
+  status: string;
+  progress: number;
+  transcription?: string;
+  error?: string;
+}
+
 export async function transcribeAudio(
   file: File, 
-  onProgress?: (progress: { status: string; progress: number }) => void,
+  onProgress?: (progress: TranscriptionProgress) => void,
   options = { optimizeAudio: false, improveTranscription: true },
   signal?: AbortSignal
 ): Promise<{ original: string; improved: string | null }> {
@@ -54,7 +61,7 @@ export async function transcribeAudio(
     }
 
     let transcriptionResult = '';
-    let lastProgress = { status: '', progress: 0 };
+    let lastProgress: TranscriptionProgress = { status: '', progress: 0 };
 
     while (true) {
       const { done, value } = await reader.read();
@@ -72,15 +79,36 @@ export async function transcribeAudio(
           const parsedData = JSON.parse(data);
           console.log('Received data:', parsedData);
 
-          if (parsedData.status && onProgress) {
+          // Update progress
+          if (parsedData.status) {
             lastProgress = parsedData;
-            onProgress(parsedData);
+            if (onProgress) {
+              onProgress(parsedData);
+            }
           }
+
+          // Store transcription if available
           if (parsedData.transcription) {
             transcriptionResult = parsedData.transcription;
+            // Also update progress with the transcription
+            if (onProgress) {
+              onProgress({
+                status: 'Complete',
+                progress: 100,
+                transcription: transcriptionResult
+              });
+            }
+          }
+
+          // Handle error
+          if (parsedData.error) {
+            throw new Error(parsedData.error);
           }
         } catch (e) {
           console.error('Error parsing SSE data:', e);
+          if (e instanceof Error) {
+            throw e;
+          }
         }
       }
     }
@@ -95,6 +123,13 @@ export async function transcribeAudio(
     };
   } catch (error) {
     console.error('Transcription error:', error);
+    if (onProgress) {
+      onProgress({
+        status: 'Error',
+        progress: 0,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
     throw error;
   }
 }
