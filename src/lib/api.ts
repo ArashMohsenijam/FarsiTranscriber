@@ -4,7 +4,7 @@ const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
 const REPO_OWNER = 'ArashMohsenijam';
 const REPO_NAME = 'FarsiTranscriber';
 // Use the production API URL
-const API_URL = 'https://farsitranscriber.onrender.com';
+const API_URL = 'https://farsitranscriber-api.onrender.com';
 
 // Helper function to convert ArrayBuffer to base64
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -16,63 +16,81 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return window.btoa(binary);
 }
 
-export async function transcribeAudio(file: File, onProgress?: (progress: { status: string; progress: number }) => void): Promise<string> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
+export async function transcribeAudio(
+  file: File, 
+  onProgress?: (progress: { status: string; progress: number }) => void,
+  options = { optimizeAudio: false, improveTranscription: true },
+  signal?: AbortSignal
+): Promise<{ original: string; improved: string | null }> {
+  console.log('Sending request with options:', options);
 
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('options', JSON.stringify(options));
+
+  try {
     const response = await fetch(`${API_URL}/api/transcribe`, {
       method: 'POST',
       body: formData,
+      mode: 'cors',
+      credentials: 'omit',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal
     });
 
     if (!response.ok) {
-      throw new Error('Failed to connect to transcription server');
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
+    // Set up event source for progress updates
     const reader = response.body?.getReader();
     if (!reader) {
-      throw new Error('No response stream available');
+      throw new Error('Response body is not readable');
     }
 
-    let transcription = '';
+    let transcriptionResult = '';
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const text = new TextDecoder().decode(value);
-      const events = text.split('\n\n').filter(Boolean);
+      const chunk = new TextDecoder().decode(value);
+      const lines = chunk.split('\\n');
 
-      for (const event of events) {
-        if (event.startsWith('data: ')) {
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
           try {
-            const data = JSON.parse(event.slice(6));
-            console.log('Received data:', data);
-            
-            if (data.transcription) {
-              transcription = data.transcription;
-              if (onProgress) {
-                onProgress({ status: 'Complete', progress: 100 });
-              }
-            } else if (data.error) {
-              throw new Error(data.error);
-            } else if (data.status && onProgress) {
-              onProgress({ status: data.status, progress: data.progress });
+            const parsedData = JSON.parse(data);
+            if (parsedData.status && onProgress) {
+              onProgress(parsedData);
+            } else if (parsedData.transcription) {
+              transcriptionResult = parsedData.transcription;
             }
           } catch (e) {
-            console.error('Error parsing event data:', e);
+            console.error('Error parsing SSE data:', e);
           }
         }
       }
     }
 
-    if (!transcription) {
-      throw new Error('No transcription received');
+    // Parse the final result
+    try {
+      const result = JSON.parse(transcriptionResult);
+      return {
+        original: result.original || '',
+        improved: result.improved || null
+      };
+    } catch (e) {
+      console.error('Error parsing transcription result:', e);
+      return {
+        original: transcriptionResult,
+        improved: null
+      };
     }
-
-    return transcription;
   } catch (error) {
-    console.error('Transcription error:', error);
-    throw error instanceof Error ? error : new Error('Failed to transcribe audio');
+    console.error('Error:', error);
+    throw error;
   }
 }
