@@ -22,36 +22,24 @@ if (!fs.existsSync(optimizedDir)) fs.mkdirSync(optimizedDir);
 
 const upload = multer({ dest: uploadsDir });
 
-// Configure CORS
-const allowedOrigins = [
-  'https://arashmohsenijam.github.io',
-  'http://localhost:5173',
-  'https://farsitranscriber.onrender.com',
-  'https://farsitranscriber-api.onrender.com'
-];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+// Simple CORS configuration
+app.use(cors({
+  origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   optionsSuccessStatus: 200
-};
-
-// Enable CORS for all routes
-app.use(cors(corsOptions));
-
-// Enable pre-flight requests for all routes
-app.options('*', cors(corsOptions));
+}));
 
 app.use(express.json());
+
+// Test endpoint for CORS
+app.get('/test-cors', (req, res) => {
+  res.json({ 
+    message: 'CORS test successful',
+    origin: req.headers.origin || 'No origin'
+  });
+});
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -60,7 +48,7 @@ if (!OPENAI_API_KEY) {
   process.exit(1);
 }
 
-app.post('/api/transcribe', cors(corsOptions), upload.single('file'), async (req, res) => {
+app.post('/api/transcribe', upload.single('file'), async (req, res) => {
   // Enable CORS for this route
   res.header('Access-Control-Allow-Origin', req.headers.origin);
   res.header('Access-Control-Allow-Credentials', true);
