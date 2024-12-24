@@ -11,12 +11,12 @@ services:
         sync: false
 
   # Frontend Service
-  - type: web
+  - type: static
     name: farsitranscriber
-    env: node
+    env: static
     branch: master
     buildCommand: npm install && npm run build
-    startCommand: npm run preview
+    staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
         value: https://farsitranscriber-api.onrender.com
