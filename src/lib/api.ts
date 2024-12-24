@@ -23,18 +23,17 @@ export async function transcribeAudio(
   signal?: AbortSignal
 ): Promise<{ original: string; improved: string }> {
   try {
+    console.log('Starting transcription request...');
     const formData = new FormData();
     formData.append('file', file);
     formData.append('optimizeAudio', options.optimizeAudio.toString());
     formData.append('improveTranscription', options.improveTranscription.toString());
 
-    console.log('Sending request with options:', options);
-
     const response = await fetch(`${API_URL}/api/transcribe`, {
       method: 'POST',
       body: formData,
       mode: 'cors',
-      credentials: 'omit',
+      credentials: 'include',
       headers: {
         'Accept': 'application/json',
       },
@@ -42,12 +41,14 @@ export async function transcribeAudio(
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      console.error('Server responded with status:', response.status);
+      console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+      throw new Error(`Server error: ${response.status}`);
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
-      throw new Error('Response body is null');
+      throw new Error('No response stream available');
     }
 
     let result: { original: string; improved: string } | null = null;
@@ -55,26 +56,27 @@ export async function transcribeAudio(
       const { done, value } = await reader.read();
       if (done) break;
 
-      // Convert the chunk to text
-      const chunk = new TextDecoder().decode(value);
-      const lines = chunk.split('\n');
+      const text = new TextDecoder().decode(value);
+      const events = text.split('\n\n').filter(Boolean);
 
-      // Process each line
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
+      for (const event of events) {
+        if (event.startsWith('data: ')) {
           try {
-            const data = JSON.parse(line.slice(5));
+            const data = JSON.parse(event.slice(6));
+            console.log('Received data:', data);
+            
             if (data.result) {
               result = data.result;
-            }
-            if (data.status && onProgress) {
-              onProgress(data);
-            }
-            if (data.error) {
+              if (onProgress) {
+                onProgress({ status: 'Complete', progress: 100 });
+              }
+            } else if (data.error) {
               throw new Error(data.error);
+            } else if (data.status && onProgress) {
+              onProgress({ status: data.status, progress: data.progress });
             }
           } catch (e) {
-            console.error('Error parsing SSE data:', e);
+            console.error('Error parsing event data:', e);
           }
         }
       }
@@ -90,6 +92,7 @@ export async function transcribeAudio(
       console.log('Request was cancelled');
       throw new Error('Operation cancelled');
     }
-    throw error;
+    console.error('Transcription error:', error);
+    throw error instanceof Error ? error : new Error('Failed to transcribe audio');
   }
 }
