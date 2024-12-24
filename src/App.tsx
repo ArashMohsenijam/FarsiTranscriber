@@ -7,54 +7,81 @@ import { WorkflowSettings } from './components/WorkflowSettings';
 import { transcribeAudio } from './lib/api';
 import { AudioFile } from './types';
 import { saveTranscription } from './lib/fileUtils';
+import { Toaster } from 'react-hot-toast';
 
 interface TranscriptionResult {
   original: string;
   improved: string;
 }
 
+interface FileState {
+  file: AudioFile;
+  status: string;
+  progress: number;
+}
+
 export function App() {
-  const [files, setFiles] = useState<AudioFile[]>([]);
+  const [files, setFiles] = useState<FileState[]>([]);
+  const [selectedFile, setSelectedFile] = useState<AudioFile | null>(null);
+  const [transcriptionError, setTranscriptionError] = useState<Error | null>(null);
+  const [combinedTranscription, setCombinedTranscription] = useState<TranscriptionResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [combinedTranscription, setCombinedTranscription] = useState<TranscriptionResult | null>(null);
   const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
-  const [optimizeAudio, setOptimizeAudio] = useState(false); // Changed to false by default
+  const [optimizeAudio, setOptimizeAudio] = useState(false); 
   const [improveTranscription, setImproveTranscription] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFilesAccepted = (newFiles: AudioFile[]) => {
-    setFiles(prevFiles => [...prevFiles, ...newFiles].sort((a, b) => a.order - b.order));
-    setCombinedTranscription(null); // Reset transcription when new files are added
+    console.log('Dropped files:', newFiles);
+    const newFilesState = newFiles.map(file => ({
+      file,
+      status: 'pending',
+      progress: 0
+    }));
+    setFiles(prev => [...prev, ...newFilesState]);
+    
+    // Select the first file for processing
+    if (newFiles.length > 0) {
+      setSelectedFile(newFiles[0]);
+    }
   };
 
-  const handleReorder = (reorderedFiles: AudioFile[]) => {
-    setFiles(reorderedFiles);
+  const handleTranscriptionComplete = (transcription: TranscriptionResult) => {
+    // Update the file status
+    setFiles(prev => prev.map(fileState => {
+      if (fileState.file === selectedFile) {
+        return {
+          ...fileState,
+          status: 'completed',
+          progress: 100
+        };
+      }
+      return fileState;
+    }));
+    setCombinedTranscription(transcription);
   };
 
-  const handleRemove = (fileId: string) => {
-    setFiles(prevFiles => prevFiles.filter(file => file.id !== fileId));
-    setCombinedTranscription(null); // Reset transcription when a file is removed
+  const handleTranscriptionError = (error: Error) => {
+    setTranscriptionError(error);
+    // Update the file status
+    setFiles(prev => prev.map(fileState => {
+      if (fileState.file === selectedFile) {
+        return {
+          ...fileState,
+          status: 'error',
+          progress: 0
+        };
+      }
+      return fileState;
+    }));
   };
 
   const handleReset = () => {
     setFiles([]);
+    setSelectedFile(null);
+    setTranscriptionError(null);
     setCombinedTranscription(null);
-    setError(null);
-  };
-
-  const handleCancel = async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setIsProcessing(false);
-    setProcessingStatus({ status: 'Cancelled', progress: 0 });
-    setFiles(prevFiles =>
-      prevFiles.map(f =>
-        f.status === 'processing' ? { ...f, status: 'pending' } : f
-      )
-    );
   };
 
   const processFiles = async () => {
@@ -66,29 +93,43 @@ export function App() {
     // Create new AbortController for this operation
     abortControllerRef.current = new AbortController();
     
-    const sortedFiles = [...files].sort((a, b) => a.order - b.order);
+    const sortedFiles = [...files].sort((a, b) => a.file.order - b.file.order);
     const transcriptions: TranscriptionResult[] = [];
 
     try {
       for (const [index, file] of sortedFiles.entries()) {
-        setFiles(prevFiles =>
-          prevFiles.map(f =>
-            f.id === file.id ? { ...f, status: 'processing' } : f
-          )
-        );
+        setFiles(prev => prev.map(fileState => {
+          if (fileState.file === file.file) {
+            return {
+              ...fileState,
+              status: 'processing',
+              progress: 0
+            };
+          }
+          return fileState;
+        }));
 
         try {
-          console.log('Processing file:', file.name);
+          console.log('Processing file:', file.file.name);
           console.log('Sending request with options:', { optimizeAudio, improveTranscription });
           
           const transcription = await transcribeAudio(
-            file.file,
+            file.file.file,
             (progress) => {
               console.log('Progress update:', progress);
               setProcessingStatus({
                 status: progress.status,
                 progress: progress.progress
               });
+              setFiles(prev => prev.map(fileState => {
+                if (fileState.file === file.file) {
+                  return {
+                    ...fileState,
+                    progress: progress.progress
+                  };
+                }
+                return fileState;
+              }));
             },
             { optimizeAudio, improveTranscription },
             abortControllerRef.current.signal
@@ -105,18 +146,28 @@ export function App() {
             improved: transcription.improved || transcription.original
           });
 
-          setFiles(prevFiles =>
-            prevFiles.map(f =>
-              f.id === file.id ? { ...f, status: 'completed' } : f
-            )
-          );
+          setFiles(prev => prev.map(fileState => {
+            if (fileState.file === file.file) {
+              return {
+                ...fileState,
+                status: 'completed',
+                progress: 100
+              };
+            }
+            return fileState;
+          }));
         } catch (error) {
-          console.error('Error processing file:', file.name, error);
-          setFiles(prevFiles =>
-            prevFiles.map(f =>
-              f.id === file.id ? { ...f, status: 'error' } : f
-            )
-          );
+          console.error('Error processing file:', file.file.name, error);
+          setFiles(prev => prev.map(fileState => {
+            if (fileState.file === file.file) {
+              return {
+                ...fileState,
+                status: 'error',
+                progress: 0
+              };
+            }
+            return fileState;
+          }));
           throw error;
         }
       }
@@ -142,82 +193,77 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-3xl mx-auto px-4">
-        <h1 className="text-2xl font-bold text-gray-900 mb-8 text-center">
-          تبدیل صوت فارسی به متن
+    <div className="min-h-screen bg-gray-100 py-8">
+      <Toaster position="top-center" />
+      <div className="max-w-4xl mx-auto px-4">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">
+          رونویس صوتی فارسی
         </h1>
 
-        <div className="space-y-6">
-          {!combinedTranscription && (
-            <>
-              <DropZone
-                onFilesAccepted={handleFilesAccepted}
-                existingFiles={files}
-              />
-
-              <WorkflowSettings
-                optimizeAudio={optimizeAudio}
-                improveTranscription={improveTranscription}
-                onOptimizeAudioChange={setOptimizeAudio}
-                onImproveTranscriptionChange={setImproveTranscription}
-              />
-
-              {files.length > 0 && (
-                <div className="space-y-6">
-                  <FileList
-                    files={files}
-                    onReorder={handleReorder}
-                    onRemove={handleRemove}
-                  />
-
-                  {isProcessing && (
-                    <div className="mt-4 p-4 bg-white rounded-lg shadow">
-                      <ProgressBar 
-                        progress={processingStatus.progress} 
-                        status={processingStatus.status}
-                      />
-                      <div className="mt-4 flex justify-end">
-                        <button
-                          onClick={handleCancel}
-                          className="px-4 py-2 text-sm text-red-600 hover:text-red-800 font-medium"
-                        >
-                          لغو عملیات
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end">
-                    <button
-                      onClick={processFiles}
-                      disabled={isProcessing || files.length === 0}
-                      className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                    >
-                      {isProcessing ? 'در حال پردازش...' : 'شروع تبدیل'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {combinedTranscription && (
-            <TranscriptionResult
-              text={{
-                original: combinedTranscription.original.trim(),
-                improved: combinedTranscription.improved.trim()
-              }}
-              onReset={handleReset}
+        {files.length === 0 ? (
+          <DropZone onFilesAccepted={handleFilesAccepted} />
+        ) : (
+          <div className="space-y-6">
+            <FileList 
+              files={files.map(f => ({
+                name: f.file.name,
+                status: f.status,
+                progress: f.progress
+              }))} 
             />
-          )}
+            
+            {selectedFile && (
+              <TranscriptionResult
+                file={selectedFile}
+                onTranscriptionComplete={handleTranscriptionComplete}
+                onError={handleTranscriptionError}
+                onReset={handleReset}
+              />
+            )}
+            
+            <WorkflowSettings
+              optimizeAudio={optimizeAudio}
+              improveTranscription={improveTranscription}
+              onOptimizeAudioChange={setOptimizeAudio}
+              onImproveTranscriptionChange={setImproveTranscription}
+            />
 
-          {error && (
-            <div className="p-4 bg-red-50 text-red-600 rounded-lg">
-              {error}
+            <div className="flex justify-end">
+              <button
+                onClick={processFiles}
+                disabled={isProcessing || files.length === 0}
+                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              >
+                {isProcessing ? 'در حال پردازش...' : 'شروع تبدیل'}
+              </button>
             </div>
-          )}
-        </div>
+
+            {isProcessing && (
+              <div className="mt-4 p-4 bg-white rounded-lg shadow">
+                <ProgressBar 
+                  progress={processingStatus.progress} 
+                  status={processingStatus.status}
+                />
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={() => {
+                      if (abortControllerRef.current) {
+                        abortControllerRef.current.abort();
+                        abortControllerRef.current = null;
+                      }
+                      setIsProcessing(false);
+                      setProcessingStatus({ status: 'Cancelled', progress: 0 });
+                      setFiles(prev => prev.map(f => ({ ...f, status: 'pending' })));
+                    }}
+                    className="px-4 py-2 text-sm text-red-600 hover:text-red-800 font-medium"
+                  >
+                    لغو عملیات
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
