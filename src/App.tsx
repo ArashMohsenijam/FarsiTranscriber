@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { DropZone } from './components/DropZone';
 import { FileList } from './components/FileList';
-import { TranscriptionResult } from './components/TranscriptionResult';
+import TranscriptionResult from './components/TranscriptionResult';
 import { ProgressBar } from './components/ProgressBar';
 import { WorkflowSettings } from './components/WorkflowSettings';
 import { transcribeAudio } from './lib/api';
