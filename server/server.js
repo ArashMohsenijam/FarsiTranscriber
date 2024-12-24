@@ -49,6 +49,19 @@ app.use((req, res, next) => {
 // Parse JSON bodies
 app.use(express.json());
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok',
+    message: 'FarsiTranscriber API is running',
+    endpoints: {
+      root: '/',
+      test: '/test-cors',
+      transcribe: '/api/transcribe'
+    }
+  });
+});
+
 // Test endpoint for CORS
 app.get('/test-cors', (req, res) => {
   res.json({ 
