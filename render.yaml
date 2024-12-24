@@ -20,3 +20,16 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://farsitranscriber-api.onrender.com
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+      - path: /*
+        name: Access-Control-Allow-Origin
+        value: https://farsitranscriber-api.onrender.com
+      - path: /*
+        name: Access-Control-Allow-Methods
+        value: GET, POST, OPTIONS
+      - path: /*
+        name: Access-Control-Allow-Headers
+        value: Content-Type, Authorization, Accept
