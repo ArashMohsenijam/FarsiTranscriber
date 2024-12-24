@@ -16,83 +16,120 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return window.btoa(binary);
 }
 
+interface TranscriptionProgress {
+  status: string;
+  progress: number;
+  transcription?: string;
+  error?: string;
+}
+
 export async function transcribeAudio(
   file: File, 
-  onProgress?: (progress: { status: string; progress: number }) => void,
-  options: { optimizeAudio: boolean; improveTranscription: boolean } = { optimizeAudio: true, improveTranscription: true },
+  onProgress?: (progress: TranscriptionProgress) => void,
+  options = { optimizeAudio: false, improveTranscription: true },
   signal?: AbortSignal
-): Promise<{ original: string; improved: string }> {
-  try {
-    console.log('Starting transcription request...');
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('optimizeAudio', options.optimizeAudio.toString());
-    formData.append('improveTranscription', options.improveTranscription.toString());
+): Promise<{ original: string; improved: string | null }> {
+  console.log('Starting transcription request...');
+  console.log('Sending request with options:', options);
 
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('options', JSON.stringify(options));
+
+  try {
     const response = await fetch(`${API_URL}/api/transcribe`, {
       method: 'POST',
       body: formData,
       mode: 'cors',
       credentials: 'include',
       headers: {
-        'Accept': 'application/json',
+        'Accept': 'text/event-stream',
       },
       signal
     });
 
     if (!response.ok) {
-      console.error('Server responded with status:', response.status);
-      console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-      throw new Error(`Server error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Server error:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
+    // Set up event source for progress updates
     const reader = response.body?.getReader();
     if (!reader) {
-      throw new Error('No response stream available');
+      throw new Error('Response body is not readable');
     }
 
-    let result: { original: string; improved: string } | null = null;
+    let transcriptionResult = '';
+    let lastProgress: TranscriptionProgress = { status: '', progress: 0 };
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const text = new TextDecoder().decode(value);
-      const events = text.split('\n\n').filter(Boolean);
+      const chunk = new TextDecoder().decode(value);
+      const lines = chunk.split('\n');
 
-      for (const event of events) {
-        if (event.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(event.slice(6));
-            console.log('Received data:', data);
-            
-            if (data.result) {
-              result = data.result;
-              if (onProgress) {
-                onProgress({ status: 'Complete', progress: 100 });
-              }
-            } else if (data.error) {
-              throw new Error(data.error);
-            } else if (data.status && onProgress) {
-              onProgress({ status: data.status, progress: data.progress });
+      for (const line of lines) {
+        if (line.trim() === '') continue;
+        if (!line.startsWith('data: ')) continue;
+
+        const data = line.slice(6);
+        try {
+          const parsedData = JSON.parse(data);
+          console.log('Received data:', parsedData);
+
+          // Update progress
+          if (parsedData.status) {
+            lastProgress = parsedData;
+            if (onProgress) {
+              onProgress(parsedData);
             }
-          } catch (e) {
-            console.error('Error parsing event data:', e);
+          }
+
+          // Store transcription if available
+          if (parsedData.transcription) {
+            transcriptionResult = parsedData.transcription;
+            // Also update progress with the transcription
+            if (onProgress) {
+              onProgress({
+                status: 'Complete',
+                progress: 100,
+                transcription: transcriptionResult
+              });
+            }
+          }
+
+          // Handle error
+          if (parsedData.error) {
+            throw new Error(parsedData.error);
+          }
+        } catch (e) {
+          console.error('Error parsing SSE data:', e);
+          if (e instanceof Error) {
+            throw e;
           }
         }
       }
     }
 
-    if (!result) {
+    if (!transcriptionResult && lastProgress.status !== 'Error') {
       throw new Error('No transcription result received');
     }
 
-    return result;
+    return {
+      original: transcriptionResult,
+      improved: null
+    };
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.log('Request was cancelled');
-      throw new Error('Operation cancelled');
-    }
     console.error('Transcription error:', error);
-    throw error instanceof Error ? error : new Error('Failed to transcribe audio');
+    if (onProgress) {
+      onProgress({
+        status: 'Error',
+        progress: 0,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+    throw error;
   }
 }
