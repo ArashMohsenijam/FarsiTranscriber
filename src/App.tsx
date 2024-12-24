@@ -3,6 +3,7 @@ import { DropZone } from './components/DropZone';
 import { FileList } from './components/FileList';
 import { TranscriptionResult } from './components/TranscriptionResult';
 import { ProgressBar } from './components/ProgressBar';
+import { WorkflowSettings } from './components/WorkflowSettings';
 import { transcribeAudio } from './lib/api';
 import { AudioFile } from './types';
 import { saveTranscription } from './lib/fileUtils';
@@ -13,6 +14,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [combinedTranscription, setCombinedTranscription] = useState<string | null>(null);
   const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
+  const [optimizeAudio, setOptimizeAudio] = useState(true);
+  const [improveTranscription, setImproveTranscription] = useState(true);
 
   const handleFilesAccepted = (newFiles: AudioFile[]) => {
     setFiles(prevFiles => [...prevFiles, ...newFiles].sort((a, b) => a.order - b.order));
@@ -59,7 +62,7 @@ export function App() {
               status: progress.status,
               progress: progress.progress
             });
-          });
+          }, { optimizeAudio, improveTranscription });
           
           console.log('Transcription received:', transcription);
           transcriptions.push(`${file.name}:\n${transcription}`);
@@ -109,6 +112,13 @@ export function App() {
               <DropZone
                 onFilesAccepted={handleFilesAccepted}
                 existingFiles={files}
+              />
+
+              <WorkflowSettings
+                optimizeAudio={optimizeAudio}
+                improveTranscription={improveTranscription}
+                onOptimizeAudioChange={setOptimizeAudio}
+                onImproveTranscriptionChange={setImproveTranscription}
               />
 
               {files.length > 0 && (

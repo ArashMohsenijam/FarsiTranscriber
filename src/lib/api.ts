@@ -16,10 +16,16 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return window.btoa(binary);
 }
 
-export async function transcribeAudio(file: File, onProgress?: (progress: { status: string; progress: number }) => void): Promise<string> {
+export async function transcribeAudio(
+  file: File, 
+  onProgress?: (progress: { status: string; progress: number }) => void,
+  options: { optimizeAudio: boolean; improveTranscription: boolean } = { optimizeAudio: true, improveTranscription: true }
+): Promise<string> {
   try {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('optimizeAudio', options.optimizeAudio.toString());
+    formData.append('improveTranscription', options.improveTranscription.toString());
 
     const response = await fetch(`${API_URL}/api/transcribe`, {
       method: 'POST',
