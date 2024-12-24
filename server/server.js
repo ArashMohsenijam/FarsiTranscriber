@@ -108,7 +108,9 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
 
   const sendStatus = (status, progress = 0) => {
     try {
-      res.write(`data: ${JSON.stringify({ status, progress })}\n\n`);
+      const data = JSON.stringify({ status, progress });
+      console.log('Sending status:', data);
+      res.write(`data: ${data}\n\n`);
     } catch (error) {
       console.error('Error sending status:', error);
     }
@@ -183,22 +185,26 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
 
     const transcription = await response.text();
     console.log('Transcription received, length:', transcription.length);
-    console.log('Transcription text:', transcription);
+    console.log('Transcription preview:', transcription.substring(0, 100) + '...');
     
     // Send the final transcription result
-    res.write(`data: ${JSON.stringify({ 
+    const finalResponse = JSON.stringify({ 
       status: 'Complete',
       progress: 100,
       transcription: transcription 
-    })}\n\n`);
+    });
+    console.log('Sending final response:', finalResponse);
+    res.write(`data: ${finalResponse}\n\n`);
     res.end();
   } catch (error) {
     console.error('Server error:', error);
-    res.write(`data: ${JSON.stringify({ 
+    const errorResponse = JSON.stringify({ 
       status: 'Error',
       progress: 0,
       error: error.message || 'An unexpected error occurred'
-    })}\n\n`);
+    });
+    console.log('Sending error response:', errorResponse);
+    res.write(`data: ${errorResponse}\n\n`);
     res.end();
   } finally {
     cleanup();

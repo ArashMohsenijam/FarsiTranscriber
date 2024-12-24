@@ -22,6 +22,7 @@ export async function transcribeAudio(
   options = { optimizeAudio: false, improveTranscription: true },
   signal?: AbortSignal
 ): Promise<{ original: string; improved: string | null }> {
+  console.log('Starting transcription request...');
   console.log('Sending request with options:', options);
 
   const formData = new FormData();
@@ -33,14 +34,16 @@ export async function transcribeAudio(
       method: 'POST',
       body: formData,
       mode: 'cors',
-      credentials: 'omit',
+      credentials: 'include',
       headers: {
-        'Accept': 'application/json',
+        'Accept': 'text/event-stream',
       },
       signal
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error:', errorText);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -51,46 +54,47 @@ export async function transcribeAudio(
     }
 
     let transcriptionResult = '';
+    let lastProgress = { status: '', progress: 0 };
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
       const chunk = new TextDecoder().decode(value);
-      const lines = chunk.split('\\n');
+      const lines = chunk.split('\n');
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          try {
-            const parsedData = JSON.parse(data);
-            if (parsedData.status && onProgress) {
-              onProgress(parsedData);
-            } else if (parsedData.transcription) {
-              transcriptionResult = parsedData.transcription;
-            }
-          } catch (e) {
-            console.error('Error parsing SSE data:', e);
+        if (line.trim() === '') continue;
+        if (!line.startsWith('data: ')) continue;
+
+        const data = line.slice(6);
+        try {
+          const parsedData = JSON.parse(data);
+          console.log('Received data:', parsedData);
+
+          if (parsedData.status && onProgress) {
+            lastProgress = parsedData;
+            onProgress(parsedData);
           }
+          if (parsedData.transcription) {
+            transcriptionResult = parsedData.transcription;
+          }
+        } catch (e) {
+          console.error('Error parsing SSE data:', e);
         }
       }
     }
 
-    // Parse the final result
-    try {
-      const result = JSON.parse(transcriptionResult);
-      return {
-        original: result.original || '',
-        improved: result.improved || null
-      };
-    } catch (e) {
-      console.error('Error parsing transcription result:', e);
-      return {
-        original: transcriptionResult,
-        improved: null
-      };
+    if (!transcriptionResult && lastProgress.status !== 'Error') {
+      throw new Error('No transcription result received');
     }
+
+    return {
+      original: transcriptionResult,
+      improved: null
+    };
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Transcription error:', error);
     throw error;
   }
 }
