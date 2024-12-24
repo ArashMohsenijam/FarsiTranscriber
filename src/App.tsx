@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { DropZone } from './components/DropZone';
 import { FileList } from './components/FileList';
 import { TranscriptionResult } from './components/TranscriptionResult';
@@ -16,6 +16,7 @@ export function App() {
   const [processingStatus, setProcessingStatus] = useState({ status: '', progress: 0 });
   const [optimizeAudio, setOptimizeAudio] = useState(true);
   const [improveTranscription, setImproveTranscription] = useState(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFilesAccepted = (newFiles: AudioFile[]) => {
     setFiles(prevFiles => [...prevFiles, ...newFiles].sort((a, b) => a.order - b.order));
@@ -37,11 +38,28 @@ export function App() {
     setError(null);
   };
 
+  const handleCancel = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsProcessing(false);
+    setProcessingStatus({ status: 'Cancelled', progress: 0 });
+    setFiles(prevFiles =>
+      prevFiles.map(f =>
+        f.status === 'processing' ? { ...f, status: 'pending' } : f
+      )
+    );
+  };
+
   const processFiles = async () => {
     setIsProcessing(true);
     setError(null);
     setCombinedTranscription(null);
     setProcessingStatus({ status: 'Starting...', progress: 0 });
+    
+    // Create new AbortController for this operation
+    abortControllerRef.current = new AbortController();
     
     const sortedFiles = [...files].sort((a, b) => a.order - b.order);
     const transcriptions: string[] = [];
@@ -56,13 +74,18 @@ export function App() {
 
         try {
           console.log('Processing file:', file.name);
-          const transcription = await transcribeAudio(file.file, (progress) => {
-            console.log('Progress update:', progress);
-            setProcessingStatus({
-              status: progress.status,
-              progress: progress.progress
-            });
-          }, { optimizeAudio, improveTranscription });
+          const transcription = await transcribeAudio(
+            file.file,
+            (progress) => {
+              console.log('Progress update:', progress);
+              setProcessingStatus({
+                status: progress.status,
+                progress: progress.progress
+              });
+            },
+            { optimizeAudio, improveTranscription },
+            abortControllerRef.current.signal
+          );
           
           console.log('Transcription received:', transcription);
           transcriptions.push(`${file.name}:\n${transcription}`);
@@ -135,6 +158,14 @@ export function App() {
                         progress={processingStatus.progress} 
                         status={processingStatus.status}
                       />
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          onClick={handleCancel}
+                          className="px-4 py-2 text-sm text-red-600 hover:text-red-800 font-medium"
+                        >
+                          لغو عملیات
+                        </button>
+                      </div>
                     </div>
                   )}
 

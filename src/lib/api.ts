@@ -19,7 +19,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 export async function transcribeAudio(
   file: File, 
   onProgress?: (progress: { status: string; progress: number }) => void,
-  options: { optimizeAudio: boolean; improveTranscription: boolean } = { optimizeAudio: true, improveTranscription: true }
+  options: { optimizeAudio: boolean; improveTranscription: boolean } = { optimizeAudio: true, improveTranscription: true },
+  signal?: AbortSignal
 ): Promise<string> {
   try {
     const formData = new FormData();
@@ -33,56 +34,55 @@ export async function transcribeAudio(
       method: 'POST',
       body: formData,
       credentials: 'include',
-      mode: 'cors'
+      mode: 'cors',
+      signal
     });
 
     if (!response.ok) {
-      throw new Error('Failed to connect to transcription server');
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
-      throw new Error('No response stream available');
+      throw new Error('Response body is null');
     }
 
-    let transcription = '';
+    let result = '';
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const text = new TextDecoder().decode(value);
-      const events = text.split('\n\n').filter(Boolean);
+      // Convert the chunk to text
+      const chunk = new TextDecoder().decode(value);
+      const lines = chunk.split('\n');
 
-      for (const event of events) {
-        if (event.startsWith('data: ')) {
+      // Process each line
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
           try {
-            const data = JSON.parse(event.slice(6));
-            console.log('Received data:', data);
-            
+            const data = JSON.parse(line.slice(5));
             if (data.transcription) {
-              transcription = data.transcription;
-              if (onProgress) {
-                onProgress({ status: 'Complete', progress: 100 });
-              }
-            } else if (data.error) {
+              result = data.transcription;
+            }
+            if (data.status && onProgress) {
+              onProgress(data);
+            }
+            if (data.error) {
               throw new Error(data.error);
-            } else if (data.status && onProgress) {
-              onProgress({ status: data.status, progress: data.progress });
             }
           } catch (e) {
-            console.error('Error parsing event data:', e);
+            console.error('Error parsing SSE data:', e);
           }
         }
       }
     }
 
-    if (!transcription) {
-      throw new Error('No transcription received');
-    }
-
-    return transcription;
+    return result;
   } catch (error) {
-    console.error('Transcription error:', error);
-    throw error instanceof Error ? error : new Error('Failed to transcribe audio');
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log('Request was cancelled');
+      throw new Error('Operation cancelled');
+    }
+    throw error;
   }
 }
