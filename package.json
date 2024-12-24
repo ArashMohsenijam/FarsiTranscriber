@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview --host --port $PORT",
-    "netlify:dev": "netlify dev"
+    "start": "vite preview --host --port $PORT"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -46,7 +46,6 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.4",
     "globals": "^15.9.0",
-    "netlify-cli": "^17.10.1",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
